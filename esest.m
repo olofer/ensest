@@ -49,11 +49,13 @@ function rep = esest(f, y, Covv, mu1, Cov1, xinit, opts)
 % G. Eversen, et al., EnKF workshop presentation 2019
 %
 
+% TODO: marginal log likelihood calculation (optionally, pre-update)
 % TODO: pre-or-post update inflation options ?
 % TODO: various diagnostics for ensemble "health", resampling, outlier removal ?
 % TODO: improve basic IES with square roots / svd [optionally at least]
 % TODO: improve IES-SUB (awkward inverse)
-% TODO: es-det [Sakov/Oke] algorithm [not so critical] & random rotations
+% TODO: es-det [Sakov/Oke] algorithm [not so critical]
+%       with optional mean-preserving random rotations
 
 if nargin == 0
   assert(nargout <= 1);
@@ -135,6 +137,10 @@ end
 rep.grad = [];
 if length(opts.Algorithm) >= 3 && strcmpi(opts.Algorithm(1:3), 'ies')
   rep.grad = NaN(1, opts.Iterations);   % logged for IES*
+end
+
+if opts.MarginalLogLikl
+  warning('not yet implemented: marginal log-likelihood');
 end
 
 W = [];
@@ -382,6 +388,7 @@ function o = getDefaultOptions()
   o.LogRMSE = true;
   o.ReturnFinalOutput = true;
   o.MinGradientNorm = 1e-8;  % stop before o.Iterations if IES* algorithms ?
+  o.MarginalLogLikl = false;
 end
 
 % Step sequence for IES; start with step a, approach step b at a rate set by c > 1
@@ -460,10 +467,13 @@ function L = getCholeskyFactor(M, n, keepVector)
 end
 
 % Manual apply f(.) to columns as "backup vectorization"
+% Need to determine output vector length also.
 function fX = ApplyFuncToColumns(f, X)
-  [rx, cx] = size(X);
-  fX = NaN(rx, cx);
-  for cc = 1:cx
+  f1 = f(X(:, 1));
+  assert(isvector(f1) && size(f1, 2) == 1);
+  cx = size(X, 2);
+  fX = [f1, NaN(size(f1, 1), cx - 1)];
+  for cc = 2:cx
     fX(:, cc) = f(X(:, cc));
   end
 end
